@@ -23,7 +23,7 @@ struct State {
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 struct Request {
-    pubkey: PublicKey,
+    pubkey: Vec<u8>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Hash, Deserialize, Serialize)]
@@ -101,8 +101,11 @@ async fn main() -> Result<()> {
         .and(warp::path!("challenge"))
         .and(warp::body::json())
         .map(move |request: Request| {
-            let challenge = Challenge::new_challenge(&my_key, &request.pubkey);
-            warp::reply::json(&challenge)
+            let Ok(pubkey): Result<PublicKey, _> = bincode::deserialize(&request.pubkey) else {
+                return warp::reply::with_status(warp::reply::json(&json!({"error": "invalid pubkey"})), StatusCode::BAD_REQUEST);
+            };
+            let challenge = Challenge::new_challenge(&my_key, &pubkey);
+            warp::reply::with_status(warp::reply::json(&challenge), StatusCode::OK)
         });
 
     let post_response = warp::post()
