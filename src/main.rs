@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::sync::Mutex;
 use tracing::{error, info};
-use warp::{http::StatusCode, hyper::body::Bytes, Filter};
+use warp::{http::StatusCode, Filter};
 
 const EMBER_SECRET: &str = "eithu4ae7uzaer5dahfeiwi5Mohy2sah1IBeinguu5afahng8u";
 
@@ -95,13 +95,6 @@ async fn main() -> Result<()> {
 )"#,
         (),
     )?;
-    db.lock().unwrap().execute(
-        r#"CREATE TABLE IF NOT EXISTS logfiles (
-    id INTEGER PRIMARY KEY,
-    content BLOB
-)"#,
-        (),
-    )?;
     let my_key = Aes256Gcm::generate_key(thread_rng());
 
     info!("Starting server...");
@@ -178,29 +171,7 @@ async fn main() -> Result<()> {
                 }
             },
         );
-
-    let post_log = warp::post()
-        .and(warp::path!("logfile"))
-        .and(warp::body::bytes())
-        .map(move |body: Bytes| {
-            let body = &body as &[u8];
-            let res = db
-                .lock()
-                .unwrap()
-                .execute("INSERT INTO logfiles (content) VALUES (?1);", params![body]);
-            match res {
-                Ok(_) => warp::reply::with_status(warp::reply::json(&()), StatusCode::CREATED),
-                Err(e) => {
-                    error!("Error saving logfile: {}", e);
-                    warp::reply::with_status(
-                        warp::reply::json(&json!({"error": "could not insert"})),
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                    )
-                }
-            }
-        });
-
-    let routes = post_challenge.or(post_response).or(get_key).or(post_log);
+    let routes = post_challenge.or(post_response).or(get_key);
 
     warp::serve(routes).run(([127, 0, 0, 1], 3030)).await;
 
