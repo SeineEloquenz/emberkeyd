@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 aes-gcm = "0.10.2"
-asym_ratchet = { path = "./asym_ratchet", features = ["serde"] }
+asym_ratchet = { path = "./asymmetric-ratchet", features = ["serde"] }
 bincode = "1.3.3"
 color-eyre = "0.6.2"
 rand = "0.8.5"

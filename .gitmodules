@@ -1,0 +1,3 @@
+[submodule "asymmetric-ratchet"]
+	path = asymmetric-ratchet
+	url = ssh://git@github.com/SeineEloquenz/asymmetric-ratchet
