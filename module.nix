@@ -17,7 +17,7 @@ in {
     };
     stateDir = mkOption {
       type = types.str;
-      default = "/var/lib/emberkeyd";
+      default = "emberkeyd";
       description = "Path to bot's state directory";
     };
   };
@@ -41,7 +41,8 @@ in {
         Type = "simple";
         KillMode = "process";
         Restart = "on-failure";
-        WorkingDirectory = cfg.stateDir;
+        StateDirectory = cfg.stateDir;
+        WorkingDirectory = "/var/lib/${cfg.stateDir}";
       };
     };
   };
