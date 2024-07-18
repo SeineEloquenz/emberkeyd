@@ -108,6 +108,7 @@ async fn main() -> Result<()> {
 
     let post_challenge = warp::post()
         .and(warp::path!("challenge"))
+        .and(warp::header::exact("X-Ember-Secret", EMBER_SECRET))
         .and(warp::body::json())
         .map(move |request: Request| {
             let Ok(pubkey): Result<PublicKey, _> = bincode::deserialize(&request.pubkey) else {
@@ -119,6 +120,7 @@ async fn main() -> Result<()> {
 
     let post_response = warp::post()
         .and(warp::path!("response"))
+        .and(warp::header::exact("X-Ember-Secret", EMBER_SECRET))
         .and(warp::body::json())
         .map(move |response: Response| match response.verify(&my_key) {
             Some(pubkey) => {
@@ -154,29 +156,31 @@ async fn main() -> Result<()> {
             ),
         });
 
-    let get_key = warp::get().and(warp::path!("key" / String)).map(
-        move |name: String| -> Box<dyn warp::reply::Reply> {
-            let res = db.lock().unwrap().query_row(
-                "SELECT pubkey FROM keys WHERE name = ?1",
-                params![&name],
-                |row| row.get::<_, Vec<u8>>(0),
-            );
-            match res {
-                Ok(bytes) => Box::new(warp::reply::json(&json!({ "pubkey": bytes }))),
-                Err(err) => {
-                    info!("Failed to retrieve {}: {}", name, err);
-                    Box::new(warp::reply::with_status(
-                        warp::reply::json(&json!({"error": "not found"})),
-                        StatusCode::NOT_FOUND,
-                    ))
+    let get_key = warp::get()
+        .and(warp::path!("key" / String))
+        .and(warp::header::exact("X-Ember-Secret", EMBER_SECRET))
+        .map(
+            move |name: String| -> Box<dyn warp::reply::Reply> {
+                let res = db.lock().unwrap().query_row(
+                    "SELECT pubkey FROM keys WHERE name = ?1",
+                    params![&name],
+                    |row| row.get::<_, Vec<u8>>(0),
+                );
+                match res {
+                    Ok(bytes) => Box::new(warp::reply::json(&json!({ "pubkey": bytes }))),
+                    Err(err) => {
+                        info!("Failed to retrieve {}: {}", name, err);
+                        Box::new(warp::reply::with_status(
+                            warp::reply::json(&json!({"error": "not found"})),
+                            StatusCode::NOT_FOUND,
+                        ))
+                    }
                 }
-            }
-        },
-    );
+            },
+        );
 
     let post_log = warp::post()
         .and(warp::path!("logfile"))
-        .and(warp::header::exact("X-Ember-Secret", EMBER_SECRET))
         .and(warp::body::bytes())
         .map(move |body: Bytes| {
             let body = &body as &[u8];
