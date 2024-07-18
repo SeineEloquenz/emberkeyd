@@ -40,7 +40,7 @@ struct Response {
     response: Vec<u8>,
     state: Vec<u8>,
     nonce: Vec<u8>,
-    name: String,
+    userId: String,
 }
 
 impl Challenge {
@@ -90,7 +90,7 @@ async fn main() -> Result<()> {
     db.lock().unwrap().execute(
         r#"CREATE TABLE IF NOT EXISTS keys (
     id INTEGER PRIMARY KEY,
-    name TEXT UNIQUE NOT NULL,
+    userId TEXT UNIQUE NOT NULL,
     pubkey BLOB
 )"#,
         (),
@@ -119,19 +119,19 @@ async fn main() -> Result<()> {
             Some(pubkey) => {
                 let keybytes = bincode::serialize(&pubkey).unwrap();
                 let res = db.lock().unwrap().execute(
-                    "INSERT INTO keys (name, pubkey) VALUES (?1, ?2);",
-                    params![response.name, keybytes],
+                    "INSERT INTO keys (userId, pubkey) VALUES (?1, ?2);",
+                    params![response.userId, keybytes],
                 );
                 match res {
                     Ok(_) => {
-                        info!("Inserted key for {}", response.name);
+                        info!("Inserted key for {}", response.userId);
                         warp::reply::with_status(warp::reply::json(&()), StatusCode::CREATED)
                     }
                     Err(e) => {
-                        error!("Error inserting key for {}: {}", response.name, e);
+                        error!("Error inserting key for {}: {}", response.userId, e);
                         if e.sqlite_error_code() == Some(ErrorCode::ConstraintViolation) {
                             warp::reply::with_status(
-                                warp::reply::json(&json!({"error": "name taken"})),
+                                warp::reply::json(&json!({"error": "userId taken"})),
                                 StatusCode::CONFLICT,
                             )
                         } else {
@@ -153,16 +153,16 @@ async fn main() -> Result<()> {
         .and(warp::path!("key" / String))
         .and(warp::header::exact("X-Ember-Secret", EMBER_SECRET))
         .map(
-            move |name: String| -> Box<dyn warp::reply::Reply> {
+            move |userId: String| -> Box<dyn warp::reply::Reply> {
                 let res = db.lock().unwrap().query_row(
-                    "SELECT pubkey FROM keys WHERE name = ?1",
-                    params![&name],
+                    "SELECT pubkey FROM keys WHERE userId = ?1",
+                    params![&userId],
                     |row| row.get::<_, Vec<u8>>(0),
                 );
                 match res {
                     Ok(bytes) => Box::new(warp::reply::json(&json!({ "pubkey": bytes }))),
                     Err(err) => {
-                        info!("Failed to retrieve {}: {}", name, err);
+                        info!("Failed to retrieve {}: {}", userId, err);
                         Box::new(warp::reply::with_status(
                             warp::reply::json(&json!({"error": "not found"})),
                             StatusCode::NOT_FOUND,
